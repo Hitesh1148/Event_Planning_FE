@@ -78,10 +78,11 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   server.listen(config.port, () => {
     console.log(`🚀 PlanWise Backend Server running on http://localhost:${config.port}`);
   });
 }
 
 export { app, server };
+export default app;
