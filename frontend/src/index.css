@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400..800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #F4F1EA;
+  --color-surface-primary: #FBF9F4;
+  --color-surface-secondary: #EAE7DF;
+  --color-text-primary: #222D38;
+  --color-text-secondary: #65717A;
+  --color-primary: #294D68;
+  --color-primary-hover: #1e384d;
+  --color-accent-secondary: #527C75;
+  --color-accent-warm: #C17A43;
+  --color-border: #D9D6CD;
+  --color-success: #477B62;
+  --color-warning: #B77B35;
+  --color-error: #A64F49;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Manrope', sans-serif;
+}
+
+.font-editorial {
+  font-family: 'DM Serif Display', Georgia, serif;
+}
+
+/* Custom crisp border styling */
+.border-crisp {
+  border: 1px solid var(--color-border);
+}
+
+/* Restrained rounded corners */
+.card-clean {
+  background-color: var(--color-surface-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+/* Subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #EAE7DF;
+}
+::-webkit-scrollbar-thumb {
+  background: #C2BFB6;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #294D68;
+}

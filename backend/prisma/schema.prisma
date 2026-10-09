@@ -1,0 +1,347 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String               @id @default(uuid())
+  email            String               @unique
+  passwordHash     String
+  name             String
+  avatarUrl        String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  memberships      GroupMember[]
+  eventMemberships EventMember[]
+  createdGroups    Group[]              @relation("CreatedGroups")
+  createdEvents    Event[]              @relation("CreatedEvents")
+  createdProposals EventProposal[]
+  votes            Vote[]
+  availabilities   MemberAvailability[]
+  budgets          MemberBudget[]
+  assignedTasks    Task[]               @relation("AssignedTasks")
+  createdTasks     Task[]               @relation("CreatedTasks")
+  paidExpenses     Expense[]            @relation("PayerExpenses")
+  expenseShares    ExpenseParticipant[]
+  changeRequests   ChangeRequest[]
+  notifications    Notification[]
+  decisionHistory  DecisionHistory[]
+}
+
+model Group {
+  id          String            @id @default(uuid())
+  name        String
+  description String?
+  inviteCode  String            @unique
+  createdById String
+  createdBy   User              @relation("CreatedGroups", fields: [createdById], references: [id])
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  members     GroupMember[]
+  invitations GroupInvitation[]
+  events      Event[]
+}
+
+model GroupMember {
+  id       String   @id @default(uuid())
+  groupId  String
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String   @default("MEMBER") // ADMIN, MEMBER
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model GroupInvitation {
+  id          String   @id @default(uuid())
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  email       String
+  token       String   @unique
+  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  invitedById String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+}
+
+model Event {
+  id                 String               @id @default(uuid())
+  groupId            String
+  group              Group                @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title              String
+  description        String?
+  eventType          String               @default("DINNER") // DINNER, BIRTHDAY, TRIP, OUTING, SPORTS, CAMPING, PARTY, OTHER
+  organizerId        String
+  organizer          User                 @relation("CreatedEvents", fields: [organizerId], references: [id])
+  status             String               @default("PLANNING") // PLANNING, VOTING, RECOMMENDED, LOCKED, COMPLETED, CANCELLED
+  selectedDate       String?
+  selectedTime       String?
+  selectedVenueId    String?
+  agreedBudget       Float?
+  rsvpDeadline       DateTime?
+  votingDeadline     DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  members            EventMember[]
+  constraints        EventConstraint[]
+  proposals          EventProposal[]
+  availabilities     MemberAvailability[]
+  budgets            MemberBudget[]
+  tasks              Task[]
+  itineraryItems     ItineraryItem[]
+  expenses           Expense[]
+  changeRequests     ChangeRequest[]
+  decisionHistory    DecisionHistory[]
+  recommendationRuns RecommendationRun[]
+}
+
+model EventMember {
+  id         String   @id @default(uuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rsvpStatus String   @default("INVITED") // INVITED, ATTENDING, MAYBE, DECLINED
+  joinedAt   DateTime @default(now())
+
+  @@unique([eventId, userId])
+}
+
+model EventConstraint {
+  id             String   @id @default(uuid())
+  eventId        String
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  constraintType String   @default("HARD") // HARD, SOFT
+  name           String
+  description    String?
+  isMandatory    Boolean  @default(true)
+  parameters     String?  // JSON string
+  createdAt      DateTime @default(now())
+}
+
+model EventProposal {
+  id            String   @id @default(uuid())
+  eventId       String
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  category      String   @default("VENUE") // VENUE, DATE, TIMESLOT, ACTIVITY
+  title         String
+  description   String?
+  estimatedCost Float?
+  location      String?
+  status        String   @default("ACTIVE") // ACTIVE, ACCEPTED, REJECTED
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  metadata      String?  // JSON string
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  votes         Vote[]
+}
+
+model Vote {
+  id         String        @id @default(uuid())
+  proposalId String
+  proposal   EventProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score      Int           @default(1) // 1 to 5 or 1
+  voteType   String        @default("UP") // UP, DOWN, RANK
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([proposalId, userId])
+}
+
+model MemberAvailability {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      String   // YYYY-MM-DD
+  timeSlot  String   // e.g. "19:00 - 22:00"
+  status    String   @default("AVAILABLE") // AVAILABLE, IF_NEEDED, UNAVAILABLE
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, userId, date, timeSlot])
+}
+
+model MemberBudget {
+  id              String   @id @default(uuid())
+  eventId         String
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredBudget Float
+  stretchBudget   Float
+  hardLimit       Float
+  currency        String   @default("USD")
+  notes           String?
+  updatedAt       DateTime @updatedAt
+
+  @@unique([eventId, userId])
+}
+
+model Venue {
+  id                    String   @id @default(uuid())
+  name                  String
+  address               String
+  category              String
+  priceTier             String   @default("$$")
+  estimatedCostPerPerson Float
+  rating                Float    @default(4.5)
+  status                String   @default("CONFIRMED") // CONFIRMED, UNVERIFIED, UNAVAILABLE
+  photoUrl              String?
+  mapsUrl               String?
+  source                String   @default("DEMO") // DEMO, GOOGLE_PLACES
+  externalPlaceId       String?
+  createdAt             DateTime @default(now())
+}
+
+model TravelEstimate {
+  id              String   @id @default(uuid())
+  eventId         String
+  venueId         String
+  origin          String
+  destination     String
+  durationMinutes Int
+  distanceKm      Float
+  estimatedCost   Float
+  trafficLevel    String   @default("LOW") // LOW, MODERATE, HEAVY
+  source          String   @default("DEMO") // DEMO, GOOGLE_ROUTES
+  updatedAt       DateTime @updatedAt
+}
+
+model RecommendationRun {
+  id             String                 @id @default(uuid())
+  eventId        String
+  event          Event                  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  runById        String
+  inputsSnapshot String                 // JSON string
+  timestamp      DateTime               @default(now())
+  results        RecommendationResult[]
+}
+
+model RecommendationResult {
+  id                  String            @id @default(uuid())
+  runId               String
+  run                 RecommendationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  proposalId          String
+  score               Float
+  rank                Int
+  isFeasible          Boolean
+  violatedConstraints String            // JSON array of strings
+  positiveFactors     String            // JSON array of strings
+  negativeFactors     String            // JSON array of strings
+  explanation         String
+  breakdown           String            // JSON object
+}
+
+model Task {
+  id           String    @id @default(uuid())
+  eventId      String
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  assignedToId String?
+  assignedTo   User?     @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  deadline     DateTime?
+  priority     String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status       String    @default("TODO") // TODO, IN_PROGRESS, COMPLETED
+  createdById  String
+  createdBy    User      @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model ItineraryItem {
+  id                  String   @id @default(uuid())
+  eventId             String
+  event               Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title               String
+  description         String?
+  startTime           String   // e.g. "19:00"
+  endTime             String?  // e.g. "21:00"
+  location            String?
+  orderIndex          Int      @default(0)
+  responsibleMemberId String?
+  notes               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Expense {
+  id           String               @id @default(uuid())
+  eventId      String
+  event        Event                @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  category     String               @default("FOOD") // FOOD, TRANSPORT, TICKETS, ACCOMMODATION, SUPPLIES, OTHER
+  totalAmount  Float
+  payerId      String
+  payer        User                 @relation("PayerExpenses", fields: [payerId], references: [id])
+  date         String               // YYYY-MM-DD
+  splitMethod  String               @default("EQUAL") // EQUAL, PARTICIPANT_BASED, CUSTOM
+  isEstimated  Boolean              @default(false)
+  receiptUrl   String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  participants ExpenseParticipant[]
+}
+
+model ExpenseParticipant {
+  id          String   @id @default(uuid())
+  expenseId   String
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shareAmount Float
+  isSettled   Boolean  @default(false)
+
+  @@unique([expenseId, userId])
+}
+
+model ChangeRequest {
+  id             String    @id @default(uuid())
+  eventId        String
+  event          Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  requestedById  String
+  requestedBy    User      @relation(fields: [requestedById], references: [id])
+  proposedChange String
+  reason         String
+  status         String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewedById   String?
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("EVENT_UPDATE")
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model DecisionHistory {
+  id         String   @id @default(uuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  actionType String
+  entityType String
+  entityId   String?
+  details    String?  // JSON string
+  timestamp  DateTime @default(now())
+}
